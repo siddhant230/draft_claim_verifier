@@ -112,3 +112,40 @@ Your task is to answer questions about the patent claims based solely on the inv
         content = _chunk_content(chunk)
         if content:
             yield content
+
+
+def compose_answer_stream(
+    question: str,
+    user_context: str,
+    llm_draft: str,
+    id_text: str,
+    extra_text: str,
+    model: str,
+) -> Generator[str, None, None]:
+    """Stream a single composed final answer that blends reviewer context and LLM draft."""
+    extra = f"\n\nAdditional Information:\n{extra_text}" if extra_text.strip() else ""
+    user_part = f"\n\nContext provided by reviewer:\n{user_context}" if user_context.strip() else ""
+
+    prompt = f"""You are a patent expert. Write one clean, authoritative answer to the patent question below.
+
+Invention Disclosure:
+---
+{id_text}{extra}
+---
+
+Question: {question}
+{user_part}
+Draft analysis:
+{llm_draft}
+
+Write a single, well-structured answer that naturally integrates all the relevant information above. Present it as a standalone professional answer — do not reference "the reviewer", "the draft", or "the context" explicitly. Just write the final answer."""
+
+    stream = ollama.chat(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        stream=True,
+    )
+    for chunk in stream:
+        content = _chunk_content(chunk)
+        if content:
+            yield content

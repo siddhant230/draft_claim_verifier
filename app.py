@@ -7,7 +7,7 @@ from typing import Generator
 import gradio as gr
 
 from document_processor import extract_comments, extract_text
-from llm_client import get_available_models, stream_analysis, stream_answer
+from llm_client import get_available_models, stream_analysis, stream_answer, compose_answer_stream
 from report_generator import save_analysis_to_docx, save_qa_to_docx
 
 # ---------------------------------------------------------------------------
@@ -262,6 +262,7 @@ def handle_chat_stream(
             **session,
             "phase": "waiting_feedback",
             "current_answer": accumulated,
+            "current_user_context": user_msg,
         }
         yield history, new_session, None
         return
@@ -282,9 +283,30 @@ def handle_chat_stream(
         history = history + [{"role": "user", "content": message}]
         words = set(feedback.split())
 
-        # ── Positive feedback ───────────────────────────────────────────────
+        # ── Positive feedback: compose a single clean answer, then save ────────
         if words & _POSITIVE_WORDS:
-            new_qa = session["approved_qa"] + [(session["current_question"], session["current_answer"])]
+            # Stream a composed answer that blends user context + LLM draft
+            history = history + [{"role": "assistant", "content": "✍ Composing final answer…"}]
+            composed = ""
+            try:
+                for chunk in compose_answer_stream(
+                    question=session["current_question"],
+                    user_context=session.get("current_user_context", ""),
+                    llm_draft=session["current_answer"],
+                    id_text=session["id_text"],
+                    extra_text=session.get("extra_text", ""),
+                    model=session["model"],
+                ):
+                    composed += chunk
+                    history[-1] = {"role": "assistant", "content": composed}
+                    yield history, session, None
+            except Exception as exc:
+                history[-1] = {"role": "assistant", "content": f"❌ Error composing answer: {exc}"}
+                yield history, session, None
+                return
+
+            # Save the composed answer (not the raw draft)
+            new_qa = session["approved_qa"] + [(session["current_question"], composed)]
             next_idx = session["current_index"] + 1
             questions = session["questions"]
 
@@ -317,6 +339,7 @@ def handle_chat_stream(
                 "current_index": next_idx,
                 "current_question": questions[next_idx],
                 "current_answer": None,
+                "current_user_context": "",
             }
             total = len(questions)
             next_q = questions[next_idx]
