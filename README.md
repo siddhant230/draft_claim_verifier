@@ -53,6 +53,15 @@ ollama pull llama3.1:8b
 
 ## 3. Install Python Dependencies
 
+**With Poetry (recommended):**
+```bash
+pip install poetry        # if not already installed
+cd auto-claim-check
+poetry install
+poetry shell              # activates the virtual environment
+```
+
+**With pip (alternative):**
 ```bash
 cd auto-claim-check
 pip install -r requirements.txt

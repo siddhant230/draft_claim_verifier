@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "auto-claim-check"
+version = "0.1.0"
+description = "Patent claim verifier pipeline using local LLMs via Ollama"
+authors = []
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+gradio = "5.49.1"
+ollama = "0.6.1"
+python-docx = "1.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
